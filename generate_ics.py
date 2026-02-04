@@ -29,9 +29,9 @@ EVENTS = [
     ("prefajr",  "Pre-Fajr Programme", 60, 60, 10, "fajr"),
     ("fajr",     "Fajr",                0, 20,  5, "fajr"),
     # worship time inserted here dynamically (fajr+20min to sunrise)
-    ("dhuhr",    "Dhuhr",               0, 15,  5, "dhuhr"),
-    ("asr",      "Asr",                 0, 15,  5, "asr"),
-    ("maghrib",  "Maghrib",             0, 15,  5, "maghrib"),
+    ("dhuhr",    "Dhuhr",               0, 30,  5, "dhuhr"),
+    ("asr",      "Asr",                 0, 30,  5, "asr"),
+    ("maghrib",  "Maghrib",             0, 30,  5, "maghrib"),
     ("isha",     "Isha",                0, 25,  5, "isha"),
 ]
 
