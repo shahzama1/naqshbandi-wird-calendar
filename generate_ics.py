@@ -3,7 +3,7 @@
 Generate an iCalendar (.ics) feed for the Naqshbandi Wird schedule.
 
 Fetches prayer times from AthanPlus for the next 6 months and produces
-a subscribable .ics file with Pre-Fajr + 5 daily prayer/wird events.
+a subscribable .ics file with Pre-Fajr + 5 daily prayers + worship time events.
 """
 
 import os
@@ -24,72 +24,16 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, "naqshbandi_wird.ics")
 DAYS_AHEAD = 180
 
 # Event definitions: (key, summary, offset_minutes_before_prayer, duration_minutes, alarm_minutes, prayer_key)
+# "worship" event is handled separately since its end time depends on sunrise
 EVENTS = [
-    ("prefajr",  "Pre-Fajr Programme",   60, 60, 10, "fajr"),
-    ("fajr",     "Fajr + Wird Bite A",    0, 20,  5, "fajr"),
-    ("dhuhr",    "Dhuhr + Wird Bite B",    0, 15,  5, "dhuhr"),
-    ("asr",      "Asr + Wird Bite C",      0, 15,  5, "asr"),
-    ("maghrib",  "Maghrib + Wird Bite D",  0, 15,  5, "maghrib"),
-    ("isha",     "Isha + Wird Bite E",     0, 25,  5, "isha"),
+    ("prefajr",  "Pre-Fajr Programme", 60, 60, 10, "fajr"),
+    ("fajr",     "Fajr",                0, 20,  5, "fajr"),
+    # worship time inserted here dynamically (fajr+20min to sunrise)
+    ("dhuhr",    "Dhuhr",               0, 15,  5, "dhuhr"),
+    ("asr",      "Asr",                 0, 15,  5, "asr"),
+    ("maghrib",  "Maghrib",             0, 15,  5, "maghrib"),
+    ("isha",     "Isha",                0, 25,  5, "isha"),
 ]
-
-WIRD_BITE_A = (
-    "Wird Bite A (Post-Fajr):\\n"
-    "- Ayat al-Kursi x1\\n"
-    "- Tasbih Fatimi: SubhanAllah x33, Alhamdulillah x33, Allahu Akbar x34\\n"
-    "- Istighfar x100: Astaghfirullah\\n"
-    "- Salawat target: {salawat}x — Allahumma salli ala Sayyidina Muhammad"
-)
-
-WIRD_BITE_B = (
-    "Wird Bite B (Post-Dhuhr):\\n"
-    "- La ilaha illAllah x100\\n"
-    "- Salawat x100: Allahumma salli ala Sayyidina Muhammad"
-)
-
-WIRD_BITE_C = (
-    "Wird Bite C (Post-Asr):\\n"
-    "- Surah Ya-Sin (recite or listen)\\n"
-    "- Salawat x100: Allahumma salli ala Sayyidina Muhammad"
-)
-
-WIRD_BITE_D = (
-    "Wird Bite D (Post-Maghrib):\\n"
-    "- Surah al-Waqi'ah (recite or listen)\\n"
-    "- Salawat x100: Allahumma salli ala Sayyidina Muhammad"
-)
-
-WIRD_BITE_E = (
-    "Wird Bite E (Post-Isha):\\n"
-    "- Surah al-Mulk (recite or listen)\\n"
-    "- Khatm Khwajagan (weekly on Thursday night)\\n"
-    "- Salawat x100: Allahumma salli ala Sayyidina Muhammad\\n"
-    "- Muraqaba / Tafakkur 5-15 min"
-)
-
-PREFAJR_DESC = (
-    "Pre-Fajr Programme:\\n"
-    "- Tahajjud: 2-8 rakat\\n"
-    "- Istighfar / Tawba\\n"
-    "- Du'a — last third of the night"
-)
-
-
-def get_description(event_key, salawat):
-    """Return the DESCRIPTION text for a given event key."""
-    if event_key == "prefajr":
-        return PREFAJR_DESC
-    elif event_key == "fajr":
-        return WIRD_BITE_A.format(salawat=salawat)
-    elif event_key == "dhuhr":
-        return WIRD_BITE_B
-    elif event_key == "asr":
-        return WIRD_BITE_C
-    elif event_key == "maghrib":
-        return WIRD_BITE_D
-    elif event_key == "isha":
-        return WIRD_BITE_E
-    return ""
 
 
 def fetch_month(year, month):
@@ -146,7 +90,7 @@ def parse_prayer_time(raw, prayer_key):
     hour = int(match.group(1))
     minute = int(match.group(2))
 
-    # Fajr and Sunrise are AM — no adjustment needed.
+    # Fajr and Sunrise are AM -- no adjustment needed.
     # Dhuhr at 12:xx stays as-is.
     # Asr, Maghrib, Isha with hour < 12 need +12 for PM.
     if prayer_key in ("asr", "maghrib", "isha") and hour < 12:
@@ -165,7 +109,6 @@ def collect_prayer_times():
     d = today.replace(day=1)
     while d <= end_date:
         months_to_fetch.add((d.year, d.month))
-        # Move to next month
         if d.month == 12:
             d = d.replace(year=d.year + 1, month=1)
         else:
@@ -201,7 +144,6 @@ def fold_line(line):
     """Fold a content line per RFC 5545 (max 75 octets per line)."""
     result = []
     while len(line.encode("utf-8")) > 75:
-        # Find a safe split point
         cut = 75
         while cut > 0 and len(line[:cut].encode("utf-8")) > 75:
             cut -= 1
@@ -237,18 +179,10 @@ def build_vtimezone():
     )
 
 
-def build_vevent(date, event_key, summary, prayer_hour, prayer_min,
-                 offset_min, duration_min, alarm_min, salawat):
+def build_vevent(date, event_key, summary, start_dt, end_dt, alarm_min):
     """Build a single VEVENT string."""
-    # Compute start time
-    start_dt = TZ.localize(datetime(date.year, date.month, date.day,
-                                     prayer_hour, prayer_min))
-    start_dt = start_dt - timedelta(minutes=offset_min)
-    end_dt = start_dt + timedelta(minutes=duration_min)
-
     now_utc = datetime.now(pytz.utc)
     uid = f"{date.strftime('%Y%m%d')}-{event_key}@mcws-naqshbandi"
-    description = get_description(event_key, salawat)
 
     lines = [
         "BEGIN:VEVENT",
@@ -257,27 +191,24 @@ def build_vevent(date, event_key, summary, prayer_hour, prayer_min,
         f"DTSTART;TZID={TIMEZONE}:{fmt_dt(start_dt)}",
         f"DTEND;TZID={TIMEZONE}:{fmt_dt(end_dt)}",
         f"SUMMARY:{summary}",
-    ]
-
-    if description:
-        lines.append(f"DESCRIPTION:{description}")
-
-    # Alarm
-    lines.extend([
         "BEGIN:VALARM",
-        "TRIGGER:-PT{}M".format(alarm_min),
+        f"TRIGGER:-PT{alarm_min}M",
         "ACTION:DISPLAY",
         f"DESCRIPTION:Reminder: {summary}",
         "END:VALARM",
         "END:VEVENT",
-    ])
+    ]
 
-    # Fold long lines
     folded = []
     for line in lines:
         folded.append(fold_line(line))
 
     return "\r\n".join(folded)
+
+
+def make_dt(date, hour, minute):
+    """Create a timezone-aware datetime from date and hour/minute tuple."""
+    return TZ.localize(datetime(date.year, date.month, date.day, hour, minute))
 
 
 def generate_ics(all_days):
@@ -296,9 +227,6 @@ def generate_ics(all_days):
 
     for date in sorted(all_days.keys()):
         times = all_days[date]
-        # Mon=0, Thu=3, Fri=4 → salawat 300; else 100
-        weekday = date.weekday()
-        salawat = 300 if weekday in (0, 3, 4) else 100
 
         for event_key, summary, offset, duration, alarm, prayer_key in EVENTS:
             prayer_time = times.get(prayer_key)
@@ -306,11 +234,24 @@ def generate_ics(all_days):
                 continue
             hour, minute = prayer_time
 
-            vevent = build_vevent(
-                date, event_key, summary,
-                hour, minute, offset, duration, alarm, salawat
-            )
+            start_dt = make_dt(date, hour, minute) - timedelta(minutes=offset)
+            end_dt = start_dt + timedelta(minutes=duration)
+
+            vevent = build_vevent(date, event_key, summary, start_dt, end_dt, alarm)
             parts.append(vevent)
+
+            # After Fajr event, insert Worship Time (fajr end -> sunrise)
+            if event_key == "fajr":
+                sunrise = times.get("sunrise")
+                if sunrise:
+                    sunrise_dt = make_dt(date, sunrise[0], sunrise[1])
+                    # Worship starts when Fajr event ends
+                    if end_dt < sunrise_dt:
+                        worship = build_vevent(
+                            date, "worship", "Worship Time",
+                            end_dt, sunrise_dt, 0
+                        )
+                        parts.append(worship)
 
     parts.append("END:VCALENDAR")
     return "\r\n".join(parts)
@@ -337,7 +278,7 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8", newline="") as f:
         f.write(ics_content)
 
-    total_events = len(all_days) * 6
+    total_events = len(all_days) * 7  # 6 prayers + worship
     print(f"Written {OUTPUT_FILE}")
     print(f"Total events: {total_events}")
 
@@ -345,12 +286,12 @@ def main():
     first_date = min(all_days.keys())
     times = all_days[first_date]
     fajr = times["fajr"]
-    print(f"\nSanity check — {first_date}:")
+    sunrise = times["sunrise"]
+    print(f"\nSanity check -- {first_date}:")
     print(f"  Fajr: {fajr[0]:02d}:{fajr[1]:02d}")
+    print(f"  Sunrise: {sunrise[0]:02d}:{sunrise[1]:02d}")
     print(f"  Pre-Fajr starts: {fajr[0]:02d}:{fajr[1]:02d} minus 60min")
-    wd = first_date.weekday()
-    sal = 300 if wd in (0, 3, 4) else 100
-    print(f"  Day of week: {first_date.strftime('%A')} -> salawat target: {sal}")
+    print(f"  Worship Time: Fajr+20min to Sunrise")
     print("\nDone!")
 
 
