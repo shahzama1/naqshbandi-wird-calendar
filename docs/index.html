@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naqshbandi Wird Schedule</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 640px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            color: #1a1a1a;
+            line-height: 1.6;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+        p { margin-bottom: 0.75rem; }
+        .url-box {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            word-break: break-all;
+            margin: 1rem 0;
+            cursor: pointer;
+            position: relative;
+        }
+        .url-box:hover { background: #eaeaea; }
+        .url-box::after {
+            content: 'click to copy';
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            color: #888;
+        }
+        .instructions {
+            background: #fafafa;
+            border-left: 3px solid #2a6e3f;
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .instructions ol { padding-left: 1.25rem; }
+        .instructions li { margin-bottom: 0.4rem; }
+        .note {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Naqshbandi Wird Schedule</h1>
+    <p>Auto-updating iCalendar feed with Pre-Fajr, 5 daily prayers, and wird sessions based on live prayer times.</p>
+
+    <h2>Subscribe URL</h2>
+    <div class="url-box" id="icsUrl" onclick="copyUrl()">
+        <!-- Update this URL after deploying to GitHub Pages -->
+        https://YOUR_USERNAME.github.io/YOUR_REPO/naqshbandi_wird.ics
+    </div>
+
+    <h2>Google Calendar</h2>
+    <div class="instructions">
+        <ol>
+            <li>Open <strong>Google Calendar</strong> on desktop.</li>
+            <li>Click <strong>+</strong> next to "Other calendars" in the sidebar.</li>
+            <li>Select <strong>"From URL"</strong>.</li>
+            <li>Paste the subscribe URL above.</li>
+            <li>Click <strong>"Add calendar"</strong>.</li>
+        </ol>
+    </div>
+    <p>Google re-fetches the feed roughly every 12-24 hours, so new prayer times appear automatically.</p>
+
+    <h2>Apple Calendar</h2>
+    <div class="instructions">
+        <ol>
+            <li>Open <strong>Calendar</strong> app.</li>
+            <li>Go to <strong>File → New Calendar Subscription</strong>.</li>
+            <li>Paste the subscribe URL.</li>
+            <li>Set auto-refresh to <strong>Every day</strong>.</li>
+        </ol>
+    </div>
+
+    <p class="note">Feed regenerates nightly via GitHub Actions. Prayer times sourced from AthanPlus (MCWS).</p>
+
+    <script>
+        function copyUrl() {
+            const url = document.getElementById('icsUrl').textContent.trim();
+            navigator.clipboard.writeText(url).then(() => {
+                const el = document.getElementById('icsUrl');
+                el.dataset.originalAfter = el.style.cssText;
+                el.style.background = '#d4edda';
+                setTimeout(() => { el.style.background = ''; }, 1000);
+            });
+        }
+    </script>
+</body>
+</html>
