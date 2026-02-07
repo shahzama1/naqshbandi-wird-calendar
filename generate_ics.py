@@ -42,8 +42,11 @@ def fetch_month(year, month):
     url = f"{BASE_URL}?masjid_id={MASJID_ID}&theme=1&date={date_str}"
     print(f"  Fetching {year}-{month:02d} ...", end=" ")
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; NaqshbandiWirdCalendar/1.0)"
+    }
     try:
-        resp = requests.get(url, timeout=30)
+        resp = requests.get(url, headers=headers, timeout=30)
         resp.raise_for_status()
     except requests.RequestException as e:
         print(f"FAILED: {e}")
